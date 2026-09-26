@@ -47,3 +47,7 @@ See [PUBLISHING.md](PUBLISHING.md). Set your public GitHub repository URL in Set
 ## Chat rendering and in-flight requests
 
 AI replies render `**bold**` as bold text safely (without interpreting arbitrary HTML). When you submit a question, the extension freezes the current source text, indexed pages, selected page and study mode for that request so navigating WACE Vault while the answer is generated does not change its context. The side panel must remain open during the request. Island notifications contract automatically after a few seconds.
+
+## Streaming and interactive activities
+
+While the model prepares a reply, the chat shows rotating **task-status messages**, not the model's private reasoning. Replies stream into the conversation with a typing effect when supported by the selected provider. The **Make an activity for this topic** button asks the tutor to generate a small interactive HTML/CSS/JS study exercise; the tutor may also propose one unprompted. These are opt-in: click **Open activity** to run it. Generated activities run in a separate Chrome extension sandbox page with an opaque origin, no Chrome extension APIs, and a restrictive content security policy that blocks network requests. Do not enter personal information into an AI-created activity. An activity may be incorrect or not work; always verify exam facts against the source material.

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WACE Study Companion",
-  "version": "2.9.2",
+  "version": "3.0.0",
   "description": "An AI tutor beside WACE Vault resources. Ask questions, get hints and practise exam-style problems.",
   "permissions": [
     "sidePanel",
@@ -31,5 +31,13 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "sandbox": {
+    "pages": [
+      "module.html"
+    ]
+  },
+  "content_security_policy": {
+    "sandbox": "sandbox allow-scripts; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src data: blob:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
   }
 }
