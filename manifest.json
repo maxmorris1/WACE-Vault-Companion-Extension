@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "WACE Study Companion",
+  "version": "2.8.0",
+  "description": "An AI tutor beside WACE Vault resources. Ask questions, get hints and practise exam-style problems.",
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "storage",
+    "contextMenus",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://wacevault.com/*",
+    "https://www.wacevault.com/*",
+    "https://api.openai.com/*",
+    "https://api.github.com/*",
+    "https://raw.githubusercontent.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open WACE Study Companion"
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
