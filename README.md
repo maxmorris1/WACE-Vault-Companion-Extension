@@ -55,3 +55,9 @@ While the model prepares a reply, the chat shows rotating **task-status messages
 ## Stop generation
 
 While a reply is generating, press **Stop** beside the message input. This aborts the OpenAI stream or Chrome on-device prompt, stops the typing effect, and keeps any partial answer already received with a “Response stopped” label. If no text has arrived yet, your question stays in the conversation so you can retry.
+
+## Faster activities and source labels
+
+Activity requests send a focused excerpt around the page being viewed instead of a much larger portion of the PDF, and ask for a compact exercise. This reduces generation time but does not make on-device inference instantaneous. Each sent message shows its frozen source and page above the question, so navigating to another PDF or page afterward does not change the context used for that answer.
+
+**Quick practice** builds simple self-guided cards instantly from the visible PDF page without an AI request. **Make a custom AI activity** still asks the model to code an interactive exercise; it now uses a shorter, focused source excerpt and smaller output to reduce waiting, but Gemini Nano on-device can still be slow. Each submitted question shows the source PDF name and captured page in a label above its chat bubble.
