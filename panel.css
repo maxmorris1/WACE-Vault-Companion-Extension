@@ -99,3 +99,7 @@ main{height:calc(100vh - 63px)}
 .resource-page .resource-list{max-height:42vh;overflow-y:auto;margin-top:12px}.resource-page .resource-list button{padding:11px 12px}.resource-page .resource-list button:hover{background:#faeee2}
 .viewing-hint{display:inline-block;max-width:100%;padding:6px 10px;margin:0 0 8px;border-radius:100px;background:#e5dacf;color:#624b40;font-size:10px;font-weight:650}
 .settings-input{width:100%;background:#fffdf7;color:#302524;border:1px solid #e5ddd1;border-radius:9px;padding:11px;font-size:12px;outline:0}.settings-input:focus{border-color:#cd9574}.secondary{background:#f1e4d8;color:#4b332a;border:0;border-radius:9px;padding:10px 13px;font-size:11px;font-weight:700;margin-top:8px}.island-update{margin:10px 2px 0;width:calc(100% - 4px);padding:9px 12px;background:#a96745;color:white;border:0;border-radius:9px;text-align:left;font-size:11px;font-weight:700}
+/* A notification contracts after its timeout even if the pointer remains over the island. */
+.island-shell.notification-dismissed,.island-shell.notification-dismissed:hover{width:140px;max-height:29px;border-radius:0 0 17px 17px}
+.island-shell.notification-dismissed .island-toggle{height:29px;padding-bottom:3px}
+@media(max-height:700px){.island-shell.notification-dismissed,.island-shell.notification-dismissed:hover{max-height:27px}.island-shell.notification-dismissed .island-toggle{height:27px}}

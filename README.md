@@ -43,3 +43,7 @@ When you have WACE Vault’s built-in PDF viewer open, the extension attempts to
 ## GitHub update checks
 
 See [PUBLISHING.md](PUBLISHING.md). Set your public GitHub repository URL in Settings to receive update notices in the island. An unpacked extension cannot install its own updates; use the included PowerShell script to pull changes and then Reload in Chrome. Later, a Chrome Web Store release can update automatically.
+
+## Chat rendering and in-flight requests
+
+AI replies render `**bold**` as bold text safely (without interpreting arbitrary HTML). When you submit a question, the extension freezes the current source text, indexed pages, selected page and study mode for that request so navigating WACE Vault while the answer is generated does not change its context. The side panel must remain open during the request. Island notifications contract automatically after a few seconds.
