@@ -150,7 +150,20 @@ async function visibleStudyContext(){
         }
         const state=registry?.getStore?.()?.getState?.()||registry?.store?.getState?.()||scroll?.getState?.();
         const docs=state?.plugins?.scroll?.documents||state?.documents;
-        let page=viewer.__waceCurrentPage;
+        // EmbedPDF exposes the ACTIVE document page directly; unlike a cached event,
+        // this reflects scrolling that happened before the extension subscribed.
+        let page=capability?.getCurrentPage?.();
+        // The viewer's currentPage can lag while crossing a page boundary.
+        // Use the page occupying the centre of the visible scroll viewport instead.
+        const visibility=capability?.getMetrics?.()?.pageVisibilityMetrics||[];
+        if(visibility.length){
+          const height=viewer.getBoundingClientRect().height;
+          const centre=height/2;
+          const middle=visibility.find(v=>v.viewportY<=centre&&v.viewportY+v.scaled.visibleHeight>=centre);
+          if(middle)page=middle.pageNumber;
+          else page=visibility.slice().sort((a,b)=>(b.scaled.visibleWidth*b.scaled.visibleHeight)-(a.scaled.visibleWidth*a.scaled.visibleHeight))[0]?.pageNumber||page;
+        }
+        if(!Number.isInteger(page)||page<1)page=viewer.__waceCurrentPage;
         if(!page&&docs){const active=registry?.getPlugin('document-manager')?.provides?.()?.getActiveDocument?.();page=docs[active?.id||active?.documentId]?.currentPage||Object.values(docs)[0]?.currentPage}
         // The viewer also renders its page-number control in a shadow root.
         if(!page){const walk=(node,depth)=>{if(depth>7)return null;const input=[...node.querySelectorAll?.('input')||[]].find(el=>/page/i.test(`${el.getAttribute('aria-label')||''} ${el.getAttribute('placeholder')||''}`));if(input&&/^\d+$/.test(input.value))return Number(input.value);for(const el of node.querySelectorAll?.('*')||[]){if(el.shadowRoot){const value=walk(el.shadowRoot,depth+1);if(value)return value}}return null};page=walk(viewer,0)}
@@ -170,7 +183,8 @@ function contextForQuestion(question,budget,focus={}){
   const scores=state.pages.map(p=>{
     const lower=p.text.toLowerCase();
     let score=words.reduce((n,w)=>n+Math.min(12,lower.split(w).length-1),0);
-    if(requested.some(n=>Math.abs(n-p.number)<=1))score+=1000;
+    if(requested.includes(p.number))score+=5000;
+    else if(requested.some(n=>Math.abs(n-p.number)===1))score+=300;
     if(focus.selection&&lower.includes(focus.selection.toLowerCase().slice(0,80)))score+=2000;
     if(p.number===1)score+=1;
     return {page:p,score};
@@ -250,3 +264,12 @@ chrome.tabs.onUpdated.addListener((tabId,change,tab)=>{if(tab.active&&tab.url&&t
 chrome.tabs.onActivated.addListener(()=>{clearTimeout(tabRefreshTimer);tabRefreshTimer=setTimeout(async()=>{const tab=await activeTab();if(tab?.url!==state.tabUrl)refresh()},250)});
 
 chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.updateInfo)displayUpdate(changes.updateInfo.newValue)});
+
+// Keep the visible-page hint in sync as the student scrolls the WACE Vault viewer.
+let pageHintBusy=false;
+setInterval(async()=>{
+  if(pageHintBusy||!state.pages.length||document.hidden)return;
+  pageHintBusy=true;
+  try{const focus=await visibleStudyContext();if(focus.page){$('viewingHint').textContent=`Looking at PDF page ${focus.page}`;$('viewingHint').classList.remove('hidden')}else $('viewingHint').classList.add('hidden')}
+  finally{pageHintBusy=false}
+},1800);
