@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WACE Study Companion",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "An AI tutor beside WACE Vault resources. Ask questions, get hints and practise exam-style problems.",
   "permissions": [
     "sidePanel",

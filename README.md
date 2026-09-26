@@ -51,3 +51,7 @@ AI replies render `**bold**` as bold text safely (without interpreting arbitrary
 ## Streaming and interactive activities
 
 While the model prepares a reply, the chat shows rotating **task-status messages**, not the model's private reasoning. Replies stream into the conversation with a typing effect when supported by the selected provider. The **Make an activity for this topic** button asks the tutor to generate a small interactive HTML/CSS/JS study exercise; the tutor may also propose one unprompted. These are opt-in: click **Open activity** to run it. Generated activities run in a separate Chrome extension sandbox page with an opaque origin, no Chrome extension APIs, and a restrictive content security policy that blocks network requests. Do not enter personal information into an AI-created activity. An activity may be incorrect or not work; always verify exam facts against the source material.
+
+## Stop generation
+
+While a reply is generating, press **Stop** beside the message input. This aborts the OpenAI stream or Chrome on-device prompt, stops the typing effect, and keeps any partial answer already received with a “Response stopped” label. If no text has arrived yet, your question stays in the conversation so you can retry.

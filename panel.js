@@ -152,7 +152,7 @@ function typeResponse(message){
   const finished=new Promise(resolve=>complete=resolve);
   function tick(){ticking=false;shown=Math.min(text.length,shown+Math.max(2,Math.ceil((text.length-shown)/5)));bubble.replaceChildren();appendFormattedText(bubble,text.slice(0,shown));$('chat').scrollTop=$('chat').scrollHeight;if(shown<text.length)schedule();else if(message.done)complete()}
   function schedule(){if(!ticking){ticking=true;requestAnimationFrame(tick)}}
-  return {update(raw){text=visibleResponse(raw);message.content=text;schedule()},async finish(raw){text=visibleResponse(raw);message.done=true;schedule();await finished}};
+  return {update(raw){text=visibleResponse(raw);message.content=text;schedule()},async finish(raw,signal){text=visibleResponse(raw);message.done=true;schedule();await Promise.race([finished,new Promise((_,reject)=>{if(signal.aborted)return reject(new DOMException('Stopped','AbortError'));signal.addEventListener('abort',()=>reject(new DOMException('Stopped','AbortError')),{once:true})})])}};
 }
 function renderChat(){const chat=$('chat');chat.replaceChildren();if(!state.messages.length){const div=document.createElement('div');div.className='welcome';div.innerHTML='<div class="welcome-art" aria-hidden="true"><svg viewBox="0 0 300 222" xmlns="http://www.w3.org/2000/svg"><path class="fusion" d="M218 5 C258 5 290 30 290 67 C290 101 266 118 236 117 C194 115 168 113 145 139 C130 156 134 178 113 199 C89 220 48 218 25 196 C-3 169 5 125 36 108 C60 95 94 106 115 100 C147 91 154 62 169 38 C180 18 196 5 218 5 Z"/><circle class="satellite" cx="72" cy="50" r="43"/><circle class="satellite" cx="237" cy="174" r="39"/><circle class="inner-ring" cx="72" cy="50" r="28"/><path class="wave" d="M195 66v-13m8 21V45m8 35V39m8 28V52m8 26V42m8 32V48m8 24V51m8 14V57"/><path class="spark" d="m71 137 8 18 18 8-18 8-8 18-8-18-18-8 18-8z"/><path class="spark small" d="m102 132 3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/><path class="book" d="M221 166q8-5 16 0 8-5 16 0v20q-8-5-16 0-8-5-16 0zm16 0v20"/><circle class="eye" cx="63" cy="48" r="2.7"/><circle class="eye" cx="81" cy="48" r="2.7"/><path class="face" d="M62 60q10 8 20 0"/></svg></div><h2><span class="headline-sans">Ready to understand more?</span><span class="headline-serif">Let’s work through it.</span></h2><p>Your space to understand more, one question at a time.</p><div class="suggestions"><button data-prompt="Summarise the key ideas in this resource in simple terms.">Give me the big picture <span>↗</span></button><button data-prompt="Quiz me on this resource, one question at a time. Don\'t show the answer until I try.">Quiz me on this <span>↗</span></button><button data-prompt="What are the most common mistakes students make with this topic?">Common mistakes <span>↗</span></button></div>';chat.append(div);}else for(const m of state.messages){const item=document.createElement('div');item.className=`message ${m.role==='user'?'user':'assistant'}`;const who=document.createElement('div');who.className='who';who.textContent=m.role==='user'?'YOU':'✦ WACEWISE';const bubble=document.createElement('div');bubble.className='bubble';appendFormattedText(bubble,m.content);item.append(who,bubble);if(m.module)item.append(createActivityCard(m.module));chat.append(item)}chat.scrollTop=chat.scrollHeight;}
 const aiOptions={expectedInputs:[{type:'text',languages:['en']}],expectedOutputs:[{type:'text',languages:['en']}]};
@@ -232,23 +232,23 @@ function contextForQuestion(question,budget,focus={},source=state){
   for(const {page} of scores){const block=`[Page ${page.number}]\n${page.text.trim()}\n\n`;if(!page.text.trim())continue;if(remaining<300)break;chosen.push({number:page.number,text:block.slice(0,remaining)});remaining-=Math.min(block.length,remaining)}
   return chosen.sort((a,b)=>a.number-b.number).map(x=>x.text).join('')||'[No readable text found in the PDF.]';
 }
-async function localAnswer(sys,focus,source,question,history,onChunk){
+async function localAnswer(sys,focus,source,question,history,onChunk,signal){
   if(typeof LanguageModel==='undefined')throw new Error('Chrome’s built-in Prompt API is not available. Try a newer desktop Chrome or switch to OpenAI in Settings.');
   const availability=await LanguageModel.availability(aiOptions);
   if(availability!=='available')throw new Error(availability==='unavailable'?'On-device AI is unavailable on this device. Switch to OpenAI in Settings.':'The on-device model is not ready. Open Settings and choose Set up on-device model.');
   const instruction=sys.slice(0,sys.indexOf('Resource excerpt:'));
   const excerpt=contextForQuestion(question,5000,focus,source);
-  const session=await LanguageModel.create({expectedInputs:aiOptions.expectedInputs,expectedOutputs:aiOptions.expectedOutputs});
+  const session=await LanguageModel.create({expectedInputs:aiOptions.expectedInputs,expectedOutputs:aiOptions.expectedOutputs,signal});
   let raw='';
   try{
-    for await(const piece of session.promptStreaming(`${instruction}\nResource excerpt (truncated for on-device model):\n${excerpt}\n\nRecent conversation:\n${history}\nTutor:`)){
+    for await(const piece of session.promptStreaming(`${instruction}\nResource excerpt (truncated for on-device model):\n${excerpt}\n\nRecent conversation:\n${history}\nTutor:`,{signal})){
       const chunk=String(piece);raw=chunk.startsWith(raw)?chunk:raw+chunk;onChunk(raw);
     }
     return raw;
   }finally{session.destroy()}
 }
-async function cloudAnswer(sys,apiKey,model,messages,onChunk){
-  const response=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},body:JSON.stringify({model:model||'gpt-4o-mini',temperature:0.5,max_tokens:2400,stream:true,messages:[{role:'system',content:sys},...messages]})});
+async function cloudAnswer(sys,apiKey,model,messages,onChunk,signal){
+  const response=await fetch('https://api.openai.com/v1/chat/completions',{signal,method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},body:JSON.stringify({model:model||'gpt-4o-mini',temperature:0.5,max_tokens:2400,stream:true,messages:[{role:'system',content:sys},...messages]})});
   if(!response.ok){let error;try{error=(await response.json()).error?.message}catch{}throw new Error(error||`OpenAI returned HTTP ${response.status}`)}
   if(!response.body)throw new Error('OpenAI did not provide a response stream.');
   const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',raw='';
@@ -270,7 +270,7 @@ async function send(text){
   const {apiKey,model,provider}=await chrome.storage.local.get(['apiKey','model','provider']);
   const chosen=provider|| (apiKey?'openai':'nano');
   if(chosen==='openai'&&!apiKey){showError('Add your OpenAI API key in Settings, or select Chrome on-device AI.');setNotice('Choose an AI provider in Settings to continue.');showIslandStatus('Setup needed',true);return}
-  showError('');state.busy=true;$('sendBtn').disabled=true;$('question').value='';const detectedFocus=await visibleStudyContext(source);const focus=detectedFocus.page||detectedFocus.selection?detectedFocus:(cachedFocus||detectedFocus);
+  showError('');state.busy=true;const controller=new AbortController();state.activeController=controller;$('sendBtn').disabled=true;$('stopBtn').classList.remove('hidden');$('question').value='';const detectedFocus=await visibleStudyContext(source);const focus=detectedFocus.page||detectedFocus.selection?detectedFocus:(cachedFocus||detectedFocus);
   $('viewingHint').classList.toggle('hidden',!focus.page&&!focus.selection);$('viewingHint').textContent=focus.selection?'Using your selected text':`Looking at PDF page ${focus.page}`;
   const userMessage={role:'user',content:text};state.messages.push(userMessage);renderChat();
   const history=state.messages.slice(-5).map(m=>`${m.role==='user'?'Student':'Tutor'}: ${m.content.slice(0,850)}`).join('\n');
@@ -284,14 +284,18 @@ async function send(text){
   try{
     const frozenMessages=state.messages.filter(m=>m!==assistantMessage).slice(-12).map(m=>({role:m.role,content:m.content}));
     const raw=chosen==='nano'
-      ? await localAnswer(sys,focus,source,text,history,onChunk)
-      : await cloudAnswer(sys,apiKey,model,frozenMessages,onChunk);
+      ? await localAnswer(sys,focus,source,text,history,onChunk,controller.signal)
+      : await cloudAnswer(sys,apiKey,model,frozenMessages,onChunk,controller.signal);
     if(!raw?.trim())throw new Error('The AI returned an empty response. Please retry.');
-    waiting.remove();await typed.finish(raw);
+    waiting.remove();await typed.finish(raw,controller.signal);if(controller.signal.aborted)throw new DOMException('Stopped','AbortError');
     const result=splitActivity(raw);assistantMessage.content=result.content;assistantMessage.module=result.module;delete assistantMessage.done;
     renderChat();showIslandStatus('Answer ready');await chrome.storage.local.set({conversation:state.messages.slice(-20)});
-  }catch(e){waiting.remove();const i=state.messages.indexOf(assistantMessage);if(i!==-1)state.messages.splice(i,1);const index=state.messages.indexOf(userMessage);if(index!==-1)state.messages.splice(index,1);renderChat();showError(e.message||'Could not generate an answer.');setNotice('Could not complete your question. Check your provider in Settings.');showIslandStatus('Question needs attention',true)}
-  finally{clearInterval(phaseTimer);state.busy=false;$('sendBtn').disabled=false;$('question').focus()}
+  }catch(e){waiting.remove();if(controller.signal.aborted){
+      const partial=visibleResponse(assistantMessage.content).trim();
+      if(partial){assistantMessage.content=partial+'\n\n[Response stopped]';delete assistantMessage.done}else{const i=state.messages.indexOf(assistantMessage);if(i!==-1)state.messages.splice(i,1)}
+      renderChat();await chrome.storage.local.set({conversation:state.messages.slice(-20)});return;
+    }const i=state.messages.indexOf(assistantMessage);if(i!==-1)state.messages.splice(i,1);const index=state.messages.indexOf(userMessage);if(index!==-1)state.messages.splice(index,1);renderChat();showError(e.message||'Could not generate an answer.');setNotice('Could not complete your question. Check your provider in Settings.');showIslandStatus('Question needs attention',true)}
+  finally{clearInterval(phaseTimer);state.activeController=null;state.busy=false;$('stopBtn').classList.add('hidden');$('sendBtn').disabled=false;$('question').focus()}
 
 }
 function mode(value){state.mode=value;document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.mode===value));$('modeHint').textContent={tutor:'Ask for hints, not just answers',practice:'One question at a time',explain:'Make a tricky idea click'}[value];$('question').placeholder={tutor:'Ask anything about this resource…',practice:'What should I practise?',explain:'What concept is confusing?'}[value];}
@@ -300,9 +304,9 @@ $('islandShell').onmouseenter=()=>{if(!$('islandShell').classList.contains('noti
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.page));
 $('resourceStudyBtn').onclick=()=>navigate('study');
 $('activityBtn').onclick=()=>send('Create a short interactive practice activity for the question or concept on my current PDF page. Explain it briefly and include an interactive-html module I can try.');
-$('newChatBtn').onclick=async()=>{state.messages=[];renderChat();await chrome.storage.local.remove('conversation');navigate('study')};
+$('newChatBtn').onclick=async()=>{state.activeController?.abort();state.messages=[];renderChat();await chrome.storage.local.remove('conversation');navigate('study')};
 $('backBtn').onclick=()=>navigate('study');
-$('refreshBtn').onclick=refresh;$('chooseBtn').onclick=renderLinks;$('sendBtn').onclick=()=>send($('question').value);$('question').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send($('question').value)}};document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>mode(b.dataset.mode));$('chat').onclick=e=>{const b=e.target.closest('[data-prompt]');if(b)send(b.dataset.prompt)};$('toggleKey').onclick=()=>{$('apiKey').type=$('apiKey').type==='password'?'text':'password'};
+$('refreshBtn').onclick=refresh;$('chooseBtn').onclick=renderLinks;$('sendBtn').onclick=()=>send($('question').value);$('stopBtn').onclick=()=>state.activeController?.abort();$('question').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send($('question').value)}};document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>mode(b.dataset.mode));$('chat').onclick=e=>{const b=e.target.closest('[data-prompt]');if(b)send(b.dataset.prompt)};$('toggleKey').onclick=()=>{$('apiKey').type=$('apiKey').type==='password'?'text':'password'};
 $('provider').onchange=()=>{const nano=$('provider').value==='nano';$('openaiFields').classList.toggle('hidden',nano);$('nanoStatus').classList.toggle('hidden',!nano);$('downloadNano').classList.toggle('hidden',!nano||$('nanoStatus').textContent.startsWith('Ready'));if(nano)checkNano()};
 $('downloadNano').onclick=async()=>{
   if(nanoStarting)return;
